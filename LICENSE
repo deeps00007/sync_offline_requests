@@ -1,0 +1,10 @@
+
+---
+
+## ✅ What YOU should do now
+
+1. Save this as **`README.md`** in the package root  
+2. Run:
+
+```bash
+dart pub publish --dry-run
