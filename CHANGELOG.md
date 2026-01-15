@@ -1,3 +1,7 @@
+## 1.0.4
+- Fixed README.md formatting and emoji encoding
+- Improved code examples in documentation
+
 ## 1.0.3
 - Improved documentation and package metadata
 

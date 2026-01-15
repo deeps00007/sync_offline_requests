@@ -3,7 +3,7 @@ homepage: https://github.com/deeps00007/sync_offline_requests
 repository: https://github.com/deeps00007/sync_offline_requests
 
 description: "A Flutter package that provides offline-first HTTP request handling with automatic synchronization when internet connectivity is restored. Requests are safely stored in SQLite and retried with configurable limits."
-version: 1.0.3
+version: 1.0.4
 
 environment:
   sdk: ^3.9.2

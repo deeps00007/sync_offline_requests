@@ -27,7 +27,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  sync_offline_requests: ^1.0.3
+  sync_offline_requests: ^1.0.4
 ```
 
 Run the fetch command:
@@ -49,7 +49,11 @@ import 'package:flutter/material.dart';
 import 'package:sync_offline_requests/sync_offline_requests.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize the offline sync engine
   OfflineSync.initialize();
+  
   runApp(const MyApp());
 }
 ```
@@ -89,11 +93,11 @@ try {
 
 ---
 
-## � Advanced Usage
+## 🔧 Advanced Usage
 
 ### Manual Sync
 
-You can Force a sync operation manually, for example, on a "Pull to Refresh" action.
+You can force a sync operation manually, for example, on a "Pull to Refresh" action.
 
 ```dart
 await OfflineSync.syncNow();
@@ -119,7 +123,7 @@ print('Pending requests: $pendingCount');
 
 ---
 
-## �️ Roadmap
+## 🛣️ Roadmap
 
 - [ ] GET request caching support
 - [ ] Custom headers configuration
@@ -141,6 +145,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## � License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
