@@ -50,7 +50,6 @@ import 'package:flutter/material.dart';
 import 'package:sync_offline_requests/sync_offline_requests.dart';
 
 void main() {
-
   
   // Initialize the offline sync engine
   OfflineSync.initialize();
