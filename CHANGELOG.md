@@ -1,4 +1,4 @@
-## 1.0.2
+## 1.0.3
 - Improved documentation and package metadata
 
 ## 1.0.0
