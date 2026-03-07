@@ -56,42 +56,57 @@ flutter pub get
 
 ### 1. Initialize
 
-Initialize the package in your `main()` function. This sets up the database and network listeners.
+Initialize in your `main()` function before `runApp`. Set optional callbacks and a custom retry limit.
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:sync_offline_requests/sync_offline_requests.dart';
 
 void main() {
-  // Initialize with optional custom retry limit (default: 3)
+  // Optional: listen to sync events
+  OfflineSync.onSyncStart = () => print('Sync started');
+  OfflineSync.onRequestSuccess = (id) => print('Synced: $id');
+  OfflineSync.onRequestFailure = (id, retry) => print('Failed: $id (retry $retry)');
+
+  // Initialize — maxRetryCount is optional, default is 3
   OfflineSync.initialize(maxRetryCount: 5);
-  
+
   runApp(const MyApp());
 }
 ```
 
-### 2. Send Requests
-
-Use `OfflineSync` to send your HTTP requests. The package handles the rest.
+### 2. POST Request
 
 ```dart
-try {
-  await OfflineSync.post(
-    url: 'https://example.com/api/data',
-    body: {
-      'name': 'John Doe',
-      'role': 'Developer',
-    },
-  );
-  print('Request processed (either sent or queued)');
-} catch (e) {
-  print('Error processing request: $e');
-}
+await OfflineSync.post(
+  url: 'https://example.com/api/data',
+  body: {'name': 'John', 'role': 'Developer'},
+  headers: {'Authorization': 'Bearer your_token'}, // optional
+);
 ```
 
-**Behavior:**
+### 3. PUT Request
+
+```dart
+await OfflineSync.put(
+  url: 'https://example.com/api/user/1',
+  body: {'name': 'Updated Name'},
+  headers: {'Authorization': 'Bearer your_token'}, // optional
+);
+```
+
+### 4. DELETE Request
+
+```dart
+await OfflineSync.delete(
+  url: 'https://example.com/api/user/1',
+  headers: {'Authorization': 'Bearer your_token'}, // optional
+);
+```
+
+**Behavior for all methods:**
 - **Online**: The request is sent immediately.
-- **Offline**: The request is saved to the local database and queued for later synchronization.
+- **Offline**: The request is saved to SQLite and auto-synced when internet returns.
 
 ---
 

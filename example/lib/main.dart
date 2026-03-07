@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:sync_offline_requests/sync_offline_requests.dart';
 
-import 'dart:async';
-
 void main() {
+  // Set optional callbacks before initializing
   OfflineSync.onSyncStart = () {
-    debugPrint("🔄 CALLBACK: Sync started");
+    debugPrint('🔄 CALLBACK: Sync started');
   };
 
   OfflineSync.onRequestSuccess = (id) {
-    debugPrint("✅ CALLBACK: Request synced → $id");
+    debugPrint('✅ CALLBACK: Request synced → $id');
   };
 
   OfflineSync.onRequestFailure = (id, retry) {
-    debugPrint("❌ CALLBACK: Request failed (retry $retry) → $id");
+    debugPrint('❌ CALLBACK: Request failed (retry $retry) → $id');
   };
 
   OfflineSync.onRequestsDiscarded = (count) {
-    debugPrint("🗑️ CALLBACK: Discarded $count failed requests");
+    debugPrint('🗑️ CALLBACK: Discarded $count failed requests');
   };
 
-  OfflineSync.initialize();
+  // Initialize with custom retry limit (default: 3)
+  OfflineSync.initialize(maxRetryCount: 5);
+
   runApp(const MyApp());
 }
 
@@ -29,7 +30,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: const HomePage());
+    return MaterialApp(
+      title: 'sync_offline_requests Demo',
+      home: const HomePage(),
+    );
   }
 }
 
@@ -59,32 +63,72 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Offline Sync – SQLite Proof")),
+      appBar: AppBar(title: const Text('Offline Sync Demo')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "Pending requests in SQLite: $_pending",
+              'Pending requests in SQLite: $_pending',
               style: const TextStyle(fontSize: 18),
             ),
 
             const SizedBox(height: 30),
 
+            // POST request with Authorization header
             ElevatedButton(
               onPressed: () async {
                 await OfflineSync.post(
-                  url: "https://jsonplaceholder.typicode.com/posts",
-
+                  url: 'https://jsonplaceholder.typicode.com/posts',
                   body: {
-                    "title": "Offline Test",
-                    "body": "Stored in SQLite",
-                    "userId": 1,
+                    'title': 'Offline POST',
+                    'body': 'Stored in SQLite',
+                    'userId': 1,
                   },
+                  headers: {'Authorization': 'Bearer demo_token'},
                 );
                 await _refreshCount();
               },
-              child: const Text("Send Request"),
+              child: const Text('POST Request'),
+            ),
+
+            // PUT request
+            ElevatedButton(
+              onPressed: () async {
+                await OfflineSync.put(
+                  url: 'https://jsonplaceholder.typicode.com/posts/1',
+                  body: {
+                    'title': 'Updated Title',
+                    'body': 'Updated body',
+                    'userId': 1,
+                  },
+                  headers: {'Authorization': 'Bearer demo_token'},
+                );
+                await _refreshCount();
+              },
+              child: const Text('PUT Request'),
+            ),
+
+            // DELETE request
+            ElevatedButton(
+              onPressed: () async {
+                await OfflineSync.delete(
+                  url: 'https://jsonplaceholder.typicode.com/posts/1',
+                  headers: {'Authorization': 'Bearer demo_token'},
+                );
+                await _refreshCount();
+              },
+              child: const Text('DELETE Request'),
+            ),
+
+            const Divider(height: 40),
+
+            ElevatedButton(
+              onPressed: () async {
+                await OfflineSync.syncNow();
+                await _refreshCount();
+              },
+              child: const Text('Manual Sync'),
             ),
 
             ElevatedButton(
@@ -92,16 +136,16 @@ class _HomePageState extends State<HomePage> {
                 await OfflineSync.clearAll();
                 await _refreshCount();
               },
-              child: const Text("Clear Pending Requests"),
+              child: const Text('Clear All Requests'),
             ),
 
             ElevatedButton(
               onPressed: () async {
                 final removed = await OfflineSync.clearFailedOnly();
-                debugPrint("Removed via API: $removed");
+                debugPrint('Removed $removed failed requests');
                 await _refreshCount();
               },
-              child: const Text("Clear Failed Requests"),
+              child: const Text('Clear Failed Requests'),
             ),
           ],
         ),
