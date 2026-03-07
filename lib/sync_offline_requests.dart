@@ -16,13 +16,13 @@ typedef SyncSuccessCallback = void Function(String requestId);
 /// Called when a request fails to sync
 typedef SyncFailureCallback = void Function(String requestId, int retryCount);
 
-/// Public API for the Offline Sync package.
+/// Public API for the sync_offline_requests package.
 ///
 /// App developers only interact with this class.
 /// All internal logic is hidden.
 class OfflineSync {
   static final _uuid = Uuid();
-  static final _syncManager = SyncManager();
+  static late SyncManager _syncManager;
 
   static bool _initialized = false;
 
@@ -31,16 +31,24 @@ class OfflineSync {
   static SyncSuccessCallback? onRequestSuccess;
   static SyncFailureCallback? onRequestFailure;
 
+  /// Called when failed requests are discarded
+  static void Function(int count)? onRequestsDiscarded;
+
   /// Initialize the package.
   ///
   /// Safe to call multiple times.
   /// Automatically handles Flutter bindings.
-  static void initialize() {
+  ///
+  /// [maxRetryCount] — how many times a failed request is retried
+  /// before being considered permanently failed. Default is 3.
+  static void initialize({int maxRetryCount = 3}) {
     if (_initialized) return;
 
     WidgetsFlutterBinding.ensureInitialized();
 
-    // 🔌 wire callbacks
+    _syncManager = SyncManager(maxRetryCount: maxRetryCount);
+
+    // Wire callbacks
     _syncManager.onSyncStart = () {
       onSyncStart?.call();
     };
@@ -60,23 +68,50 @@ class OfflineSync {
   /// Stream triggered after a sync cycle completes
   static Stream<void> get onSyncComplete => _syncManager.onSyncComplete;
 
-  /// Send a POST request using offline-first strategy
+  // ─────────────────────────────────────────
+  // HTTP Methods
+  // ─────────────────────────────────────────
+
+  /// Send a POST request using offline-first strategy.
+  ///
+  /// [url] — the API endpoint
+  /// [body] — the JSON request body
+  /// [headers] — optional HTTP headers (e.g. Authorization)
   static Future<void> post({
     required String url,
     required Map<String, dynamic> body,
+    Map<String, String>? headers,
   }) async {
-    final request = OfflineRequest(
-      id: _uuid.v4(),
-      url: url,
-      method: 'POST',
-      body: jsonEncode(body),
-      retryCount: 0,
-      createdAt: DateTime.now(),
-    );
-
-    await LocalDatabase.instance.insertRequest(request);
-    await _syncManager.syncPendingRequests();
+    await _enqueue(url: url, method: 'POST', body: body, headers: headers);
   }
+
+  /// Send a PUT request using offline-first strategy.
+  ///
+  /// [url] — the API endpoint
+  /// [body] — the JSON request body
+  /// [headers] — optional HTTP headers (e.g. Authorization)
+  static Future<void> put({
+    required String url,
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    await _enqueue(url: url, method: 'PUT', body: body, headers: headers);
+  }
+
+  /// Send a DELETE request using offline-first strategy.
+  ///
+  /// [url] — the API endpoint
+  /// [headers] — optional HTTP headers (e.g. Authorization)
+  static Future<void> delete({
+    required String url,
+    Map<String, String>? headers,
+  }) async {
+    await _enqueue(url: url, method: 'DELETE', body: {}, headers: headers);
+  }
+
+  // ─────────────────────────────────────────
+  // Queue Management
+  // ─────────────────────────────────────────
 
   /// Manually trigger sync (optional)
   static Future<void> syncNow() async {
@@ -98,11 +133,34 @@ class OfflineSync {
   ///
   /// Returns number of removed requests
   static Future<int> clearFailedOnly() async {
-    return await LocalDatabase.instance.clearFailedRequests(
-      SyncManager.maxRetryCount,
+    return LocalDatabase.instance.clearFailedRequests(
+      _syncManager.maxRetryCount,
     );
   }
 
-  /// Called when failed requests are discarded
-  static void Function(int count)? onRequestsDiscarded;
+  // ─────────────────────────────────────────
+  // Internal Helpers
+  // ─────────────────────────────────────────
+
+  static Future<void> _enqueue({
+    required String url,
+    required String method,
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    assert(_initialized, 'OfflineSync.initialize() must be called first.');
+
+    final request = OfflineRequest(
+      id: _uuid.v4(),
+      url: url,
+      method: method,
+      body: jsonEncode(body),
+      headers: headers,
+      retryCount: 0,
+      createdAt: DateTime.now(),
+    );
+
+    await LocalDatabase.instance.insertRequest(request);
+    await _syncManager.syncPendingRequests();
+  }
 }

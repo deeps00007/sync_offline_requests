@@ -10,15 +10,28 @@
 
 ---
 
+## What's New in v1.2.0
+
+- **PUT & DELETE support** — Full offline-first support for all three major HTTP methods.
+- **Custom Headers** — Pass `Authorization`, `X-Api-Key`, or any header per request.
+- **Configurable retry limit** — Set `maxRetryCount` in `initialize()` instead of being stuck at 3.
+- **Bug fix** — Compatibility with `connectivity_plus` v6.x (returns `List<ConnectivityResult>`).
+- **DB Migration** — Existing users upgrade seamlessly; no data loss.
+- **Unit tests** added for initialization and callbacks.
+
+---
+
 ## Features
 
 - **Offline-First Architecture**: Seamlessly handle HTTP requests regardless of network status.
 - **Persistent Queue**: Requests are safely stored in a local SQLite database, surviving app restarts.
 - **Automatic cleanup** of failed requests after retry limit is exceeded
-- **Intelligent Retry**: Configurable retry mechanisms with maximum retry limits for failed sync attempts.
+- **Intelligent Retry**: Configurable retry mechanisms with configurable maximum retry limits.
 - **Auto-Synchronization**: Automatically detects network restoration and processes the queue.
 - **FIFO Processing**: Maintains the order of operations with First-In-First-Out processing.
 - **Minimal API**: Simple to integrate with existing projects.
+- **Custom Headers**: Pass Authorization tokens or any HTTP header per request.
+- **PUT & DELETE support**: Full offline-first support for PUT and DELETE methods.
 
 ---
 
@@ -28,7 +41,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  sync_offline_requests: ^1.1.1
+  sync_offline_requests: ^1.2.0
 ```
 
 Run the fetch command:
@@ -50,9 +63,8 @@ import 'package:flutter/material.dart';
 import 'package:sync_offline_requests/sync_offline_requests.dart';
 
 void main() {
-  
-  // Initialize the offline sync engine
-  OfflineSync.initialize();
+  // Initialize with optional custom retry limit (default: 3)
+  OfflineSync.initialize(maxRetryCount: 5);
   
   runApp(const MyApp());
 }
@@ -111,6 +123,41 @@ You can force a sync operation manually, for example, on a "Pull to Refresh" act
 ```dart
 await OfflineSync.syncNow();
 ```
+
+### PUT Request
+
+Update data on your API, stored and retried offline if needed.
+
+```dart
+await OfflineSync.put(
+  url: 'https://example.com/api/user/1',
+  body: {'name': 'Updated Name'},
+  headers: {'Authorization': 'Bearer your_token'},
+);
+```
+
+### DELETE Request
+
+```dart
+await OfflineSync.delete(
+  url: 'https://example.com/api/user/1',
+  headers: {'Authorization': 'Bearer your_token'},
+);
+```
+
+### Custom Headers
+
+Pass any HTTP headers (e.g. auth tokens, API keys) with your requests:
+
+```dart
+await OfflineSync.post(
+  url: 'https://example.com/api/data',
+  body: {'title': 'Hello'},
+  headers: {
+    'Authorization': 'Bearer your_token_here',
+    'X-App-Version': '1.0.0',
+  },
+);
 
 ### Check Pending Requests
 

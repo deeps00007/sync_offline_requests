@@ -1,3 +1,19 @@
+## 1.2.0
+
+### New Features
+- Added `OfflineSync.put()` for offline-first PUT requests
+- Added `OfflineSync.delete()` for offline-first DELETE requests
+- Added `headers` parameter to `post()`, `put()`, and `delete()` for custom HTTP headers (e.g. Authorization tokens)
+- `maxRetryCount` is now configurable via `OfflineSync.initialize(maxRetryCount: 5)`
+
+### Bug Fixes
+- Fixed compatibility with `connectivity_plus` v6.x which returns `List<ConnectivityResult>` instead of a single value
+  
+### Improvements
+- Bumped `connectivity_plus` dependency to `^6.0.0`
+- SQLite database migrated to version 2 (adds `headers` column with backward-compatible migration)
+- Added unit tests for initialization, callbacks, and queue management
+
 ## 1.1.1
 - Removed decorative icons from documentation for cleaner look
 - Minor documentation updates

@@ -21,8 +21,10 @@ class SyncManager {
   /// Called when a request fails to sync
   void Function(String requestId, int retryCount)? onRequestFailure;
 
-  /// Maximum retry attempts per request
-  static const int maxRetryCount = 3;
+  /// Maximum retry attempts per request (configurable via initialize)
+  int maxRetryCount;
+
+  SyncManager({this.maxRetryCount = 3});
 
   final StreamController<void> _syncController =
       StreamController<void>.broadcast();
@@ -38,8 +40,10 @@ class SyncManager {
     if (_isListening) return;
     _isListening = true;
 
-    Connectivity().onConnectivityChanged.listen((result) async {
-      if (result != ConnectivityResult.none) {
+    Connectivity().onConnectivityChanged.listen((results) async {
+      // connectivity_plus >= 6.x returns a List<ConnectivityResult>
+      final isConnected = results.any((r) => r != ConnectivityResult.none);
+      if (isConnected) {
         await syncPendingRequests();
       }
     });
@@ -71,6 +75,7 @@ class SyncManager {
             url: request.url,
             method: request.method,
             body: request.body,
+            headers: request.headers,
             retryCount: newRetryCount,
             createdAt: request.createdAt,
           ),
@@ -87,27 +92,23 @@ class SyncManager {
   Future<bool> _sendRequest(OfflineRequest request) async {
     try {
       final uri = Uri.parse(request.url);
+
+      // Merge default Content-Type with user-supplied headers
+      final headers = {'Content-Type': 'application/json', ...request.headers};
+
       late http.Response response;
 
       switch (request.method.toUpperCase()) {
         case 'POST':
-          response = await http.post(
-            uri,
-            body: request.body,
-            headers: {'Content-Type': 'application/json'},
-          );
+          response = await http.post(uri, body: request.body, headers: headers);
           break;
 
         case 'PUT':
-          response = await http.put(
-            uri,
-            body: request.body,
-            headers: {'Content-Type': 'application/json'},
-          );
+          response = await http.put(uri, body: request.body, headers: headers);
           break;
 
         case 'DELETE':
-          response = await http.delete(uri);
+          response = await http.delete(uri, headers: headers);
           break;
 
         default:
@@ -122,7 +123,7 @@ class SyncManager {
 
   /// Check if device has network connection
   Future<bool> _hasInternet() async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
   }
 }

@@ -28,7 +28,12 @@ class LocalDatabase {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'offline_sync.db');
 
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   /// Create required tables on first launch
@@ -39,10 +44,21 @@ class LocalDatabase {
         url TEXT NOT NULL,
         method TEXT NOT NULL,
         body TEXT NOT NULL,
+        headers TEXT NOT NULL DEFAULT '{}',
         retryCount INTEGER NOT NULL,
         createdAt TEXT NOT NULL
       )
     ''');
+  }
+
+  /// Handle DB schema migrations
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add headers column for users upgrading from v1
+      await db.execute(
+        "ALTER TABLE offline_requests ADD COLUMN headers TEXT NOT NULL DEFAULT '{}'",
+      );
+    }
   }
 
   /// Insert or update an offline request
