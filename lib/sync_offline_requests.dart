@@ -1,11 +1,12 @@
 import 'dart:convert';
-
+export 'src/app_enum.dart' show RequestPriority;
 import 'package:flutter/widgets.dart';
 import 'package:uuid/uuid.dart';
 
 import 'src/request_model.dart';
 import 'src/local_db.dart';
 import 'src/sync_manager.dart';
+import 'sync_offline_requests.dart' show RequestPriority;
 
 /// Called when a sync cycle starts
 typedef SyncStartCallback = void Function();
@@ -81,8 +82,9 @@ class OfflineSync {
     required String url,
     required Map<String, dynamic> body,
     Map<String, String>? headers,
+    RequestPriority priority = RequestPriority.medium, // NEW: priority parameter
   }) async {
-    await _enqueue(url: url, method: 'POST', body: body, headers: headers);
+    await _enqueue(url: url, method: 'POST', body: body, headers: headers, priority: priority);
   }
 
   /// Send a PUT request using offline-first strategy.
@@ -94,8 +96,9 @@ class OfflineSync {
     required String url,
     required Map<String, dynamic> body,
     Map<String, String>? headers,
+    RequestPriority priority = RequestPriority.medium, // NEW: priority parameter
   }) async {
-    await _enqueue(url: url, method: 'PUT', body: body, headers: headers);
+    await _enqueue(url: url, method: 'PUT', body: body, headers: headers, priority: priority);
   }
 
   /// Send a DELETE request using offline-first strategy.
@@ -105,8 +108,9 @@ class OfflineSync {
   static Future<void> delete({
     required String url,
     Map<String, String>? headers,
+    RequestPriority priority = RequestPriority.medium, // NEW: priority parameter
   }) async {
-    await _enqueue(url: url, method: 'DELETE', body: {}, headers: headers);
+    await _enqueue(url: url, method: 'DELETE', body: {}, headers: headers, priority: priority);
   }
 
   // ─────────────────────────────────────────
@@ -121,6 +125,11 @@ class OfflineSync {
   /// Get number of pending offline requests
   static Future<int> pendingCount() async {
     return LocalDatabase.instance.getPendingCount();
+  }
+
+  /// Get count of pending requests by priority
+  static Future<Map<RequestPriority, int>> getPriorityCounts() async {
+    return LocalDatabase.instance.getPriorityCounts();
   }
 
   /// Clear all pending offline requests
@@ -147,6 +156,7 @@ class OfflineSync {
     required String method,
     required Map<String, dynamic> body,
     Map<String, String>? headers,
+    RequestPriority priority = RequestPriority.medium,
   }) async {
     assert(_initialized, 'OfflineSync.initialize() must be called first.');
 
@@ -158,6 +168,7 @@ class OfflineSync {
       headers: headers,
       retryCount: 0,
       createdAt: DateTime.now(),
+      priority: priority, // NEW: set priority
     );
 
     await LocalDatabase.instance.insertRequest(request);

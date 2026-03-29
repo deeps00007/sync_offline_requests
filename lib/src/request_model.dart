@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'app_enum.dart';
+
 /// Represents a single offline API request
 /// that could not be sent due to no internet.
 ///
@@ -34,6 +36,9 @@ class OfflineRequest {
   /// Used to preserve FIFO (First-In-First-Out) order
   final DateTime createdAt;
 
+  /// Priority level of the request (high, medium, low)
+  final RequestPriority priority;
+
   OfflineRequest({
     required this.id,
     required this.url,
@@ -42,6 +47,7 @@ class OfflineRequest {
     Map<String, String>? headers,
     required this.retryCount,
     required this.createdAt,
+    this.priority = RequestPriority.medium, // Default to medium
   }) : headers = headers ?? {};
 
   /// Convert request object to Map for SQLite storage
@@ -54,6 +60,7 @@ class OfflineRequest {
       'headers': jsonEncode(headers),
       'retryCount': retryCount,
       'createdAt': createdAt.toIso8601String(),
+      'priority': priority.index, // Store as integer (0=high, 1=medium, 2=low)
     };
   }
 
@@ -65,6 +72,13 @@ class OfflineRequest {
           jsonDecode(map['headers'] as String) as Map<String, dynamic>;
       headers = decoded.map((k, v) => MapEntry(k, v.toString()));
     }
+    // Get priority from map, default to medium for backwards compatibility
+    RequestPriority priority = RequestPriority.medium;
+    if (map.containsKey('priority')) {
+      final priorityIndex = map['priority'] as int;
+      priority = RequestPriority.values[priorityIndex];
+    }
+
     return OfflineRequest(
       id: map['id'] as String,
       url: map['url'] as String,
@@ -73,6 +87,7 @@ class OfflineRequest {
       headers: headers,
       retryCount: map['retryCount'] as int,
       createdAt: DateTime.parse(map['createdAt'] as String),
+      priority: priority,
     );
   }
 }

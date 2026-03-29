@@ -46,13 +46,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _pending = 0;
-
-  Future<void> _refreshCount() async {
-    final count = await OfflineSync.pendingCount();
-    setState(() {
-      _pending = count;
-    });
-  }
+  Map<RequestPriority, int> _priorityCounts = {};
 
   @override
   void initState() {
@@ -60,95 +54,394 @@ class _HomePageState extends State<HomePage> {
     _refreshCount();
   }
 
+  Future<void> _refreshCount() async {
+    final count = await OfflineSync.pendingCount();
+    final priorityCounts = await OfflineSync.getPriorityCounts();
+    setState(() {
+      _pending = count;
+      _priorityCounts = priorityCounts;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Offline Sync Demo')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Pending requests in SQLite: $_pending',
-              style: const TextStyle(fontSize: 18),
-            ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Total pending requests
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Total Pending: $_pending',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Divider(),
+                      const SizedBox(height: 10),
+                      // Priority breakdown
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildPriorityChip(
+                            'High Priority',
+                            _priorityCounts[RequestPriority.high] ?? 0,
+                            Colors.red,
+                          ),
+                          _buildPriorityChip(
+                            'Medium Priority',
+                            _priorityCounts[RequestPriority.medium] ?? 0,
+                            Colors.orange,
+                          ),
+                          _buildPriorityChip(
+                            'Low Priority',
+                            _priorityCounts[RequestPriority.low] ?? 0,
+                            Colors.green,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-            const SizedBox(height: 30),
+              const SizedBox(height: 30),
 
-            // POST request with Authorization header
-            ElevatedButton(
-              onPressed: () async {
-                await OfflineSync.post(
-                  url: 'https://jsonplaceholder.typicode.com/posts',
-                  body: {
-                    'title': 'Offline POST',
-                    'body': 'Stored in SQLite',
-                    'userId': 1,
-                  },
-                  headers: {'Authorization': 'Bearer demo_token'},
-                );
-                await _refreshCount();
-              },
-              child: const Text('POST Request'),
-            ),
+              // High Priority Section
+              Card(
+                color: Colors.red.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '🔥 HIGH PRIORITY (Syncs First)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () async {
+                          await OfflineSync.post(
+                            url: 'https://jsonplaceholder.typicode.com/posts',
+                            body: {
+                              'title': 'URGENT: Payment Confirmation',
+                              'body': 'High priority request',
+                              'userId': 1,
+                              'priority': 'high',
+                            },
+                            headers: {'Authorization': 'Bearer demo_token'},
+                            priority: RequestPriority.high,
+                          );
+                          await _refreshCount();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('🔥 High priority request queued!'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.priority_high),
+                        label: const Text('Send HIGH Priority POST'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-            // PUT request
-            ElevatedButton(
-              onPressed: () async {
-                await OfflineSync.put(
-                  url: 'https://jsonplaceholder.typicode.com/posts/1',
-                  body: {
-                    'title': 'Updated Title',
-                    'body': 'Updated body',
-                    'userId': 1,
-                  },
-                  headers: {'Authorization': 'Bearer demo_token'},
-                );
-                await _refreshCount();
-              },
-              child: const Text('PUT Request'),
-            ),
+              const SizedBox(height: 15),
 
-            // DELETE request
-            ElevatedButton(
-              onPressed: () async {
-                await OfflineSync.delete(
-                  url: 'https://jsonplaceholder.typicode.com/posts/1',
-                  headers: {'Authorization': 'Bearer demo_token'},
-                );
-                await _refreshCount();
-              },
-              child: const Text('DELETE Request'),
-            ),
+              // Medium Priority Section (Default)
+              Card(
+                color: Colors.orange.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '⭐ MEDIUM PRIORITY (Default)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                        ),
+                        onPressed: () async {
+                          await OfflineSync.post(
+                            url: 'https://jsonplaceholder.typicode.com/posts',
+                            body: {
+                              'title': 'Normal User Data',
+                              'body': 'Medium priority request',
+                              'userId': 1,
+                            },
+                            headers: {'Authorization': 'Bearer demo_token'},
+                            // priority defaults to medium
+                          );
+                          await _refreshCount();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('⭐ Medium priority request queued!'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Send MEDIUM Priority POST'),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                        ),
+                        onPressed: () async {
+                          await OfflineSync.put(
+                            url: 'https://jsonplaceholder.typicode.com/posts/1',
+                            body: {
+                              'title': 'Updated User Data',
+                              'body': 'Medium priority update',
+                              'userId': 1,
+                            },
+                            headers: {'Authorization': 'Bearer demo_token'},
+                            priority: RequestPriority.medium,
+                          );
+                          await _refreshCount();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('⭐ Medium priority PUT request queued!'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Send MEDIUM Priority PUT'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-            const Divider(height: 40),
+              const SizedBox(height: 15),
 
-            ElevatedButton(
-              onPressed: () async {
-                await OfflineSync.syncNow();
-                await _refreshCount();
-              },
-              child: const Text('Manual Sync'),
-            ),
+              // Low Priority Section
+              Card(
+                color: Colors.green.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '💤 LOW PRIORITY (Syncs Last)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                        ),
+                        onPressed: () async {
+                          await OfflineSync.post(
+                            url: 'https://jsonplaceholder.typicode.com/posts',
+                            body: {
+                              'title': 'Analytics Event',
+                              'body': 'Page view tracking',
+                              'userId': 1,
+                            },
+                            headers: {'Authorization': 'Bearer demo_token'},
+                            priority: RequestPriority.low,
+                          );
+                          await _refreshCount();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('💤 Low priority request queued!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.analytics),
+                        label: const Text('Send LOW Priority POST'),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                        ),
+                        onPressed: () async {
+                          await OfflineSync.delete(
+                            url: 'https://jsonplaceholder.typicode.com/posts/1',
+                            headers: {'Authorization': 'Bearer demo_token'},
+                            priority: RequestPriority.low,
+                          );
+                          await _refreshCount();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('💤 Low priority DELETE request queued!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Send LOW Priority DELETE'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-            ElevatedButton(
-              onPressed: () async {
-                await OfflineSync.clearAll();
-                await _refreshCount();
-              },
-              child: const Text('Clear All Requests'),
-            ),
+              const Divider(height: 40),
 
-            ElevatedButton(
-              onPressed: () async {
-                final removed = await OfflineSync.clearFailedOnly();
-                debugPrint('Removed $removed failed requests');
-                await _refreshCount();
-              },
-              child: const Text('Clear Failed Requests'),
-            ),
-          ],
+              // Action Buttons
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await OfflineSync.syncNow();
+                      await _refreshCount();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('🔄 Manual sync triggered!'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.sync),
+                    label: const Text('Manual Sync'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await OfflineSync.clearAll();
+                      await _refreshCount();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('🗑️ All requests cleared!'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.clear_all),
+                    label: const Text('Clear All'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final removed = await OfflineSync.clearFailedOnly();
+                      await _refreshCount();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Removed $removed failed requests'),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_sweep),
+                    label: const Text('Clear Failed'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Info Card
+              Card(
+                color: Colors.blue.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '📋 How Priority Works:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '• HIGH priority requests sync FIRST\n'
+                            '• MEDIUM priority requests sync SECOND\n'
+                            '• LOW priority requests sync LAST\n'
+                            '• When offline, all requests are queued with their priority\n'
+                            '• When internet returns, requests sync in priority order',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        color: Colors.amber.shade100,
+                        child: const Text(
+                          '💡 TIP: Turn off WiFi/Data, send high priority requests, '
+                              'then turn on internet to see them sync first!',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPriorityChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color),
+      ),
+      child: Column(
+        children: [
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
