@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
+import 'app_enum.dart';
 import 'request_model.dart';
 
 /// Handles all local database operations
@@ -30,7 +31,7 @@ class LocalDatabase {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -46,7 +47,8 @@ class LocalDatabase {
         body TEXT NOT NULL,
         headers TEXT NOT NULL DEFAULT '{}',
         retryCount INTEGER NOT NULL,
-        createdAt TEXT NOT NULL
+        createdAt TEXT NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 1
       )
     ''');
   }
@@ -54,9 +56,15 @@ class LocalDatabase {
   /// Handle DB schema migrations
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Add headers column for users upgrading from v1
+      // Add headers column
       await db.execute(
         "ALTER TABLE offline_requests ADD COLUMN headers TEXT NOT NULL DEFAULT '{}'",
+      );
+    }
+    if (oldVersion < 3) {
+      // Add priority column with default medium (1)
+      await db.execute(
+        "ALTER TABLE offline_requests ADD COLUMN priority INTEGER NOT NULL DEFAULT 1",
       );
     }
   }
@@ -78,7 +86,7 @@ class LocalDatabase {
 
     final records = await db.query(
       'offline_requests',
-      orderBy: 'createdAt ASC',
+      orderBy: 'priority ASC, createdAt ASC', // priority 0 (high) comes first
     );
 
     return records.map((map) => OfflineRequest.fromMap(map)).toList();
@@ -114,5 +122,24 @@ class LocalDatabase {
       where: 'retryCount >= ?',
       whereArgs: [maxRetryCount],
     );
+  }
+  /// Get count of requests by priority
+  Future<Map<RequestPriority, int>> getPriorityCounts() async {
+    final db = await database;
+
+    final result = await db.rawQuery('''
+      SELECT priority, COUNT(*) as count 
+      FROM offline_requests 
+      GROUP BY priority
+    ''');
+
+    final counts = <RequestPriority, int>{};
+    for (final row in result) {
+      final priority = RequestPriority.values[row['priority'] as int];
+      final count = row['count'] as int;
+      counts[priority] = count;
+    }
+
+    return counts;
   }
 }

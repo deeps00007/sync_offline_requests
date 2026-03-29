@@ -49,7 +49,7 @@ class SyncManager {
     });
   }
 
-  /// Sync all pending requests safely
+  /// Sync all pending requests safely with priority order
   Future<void> syncPendingRequests() async {
     final hasInternet = await _hasInternet();
     if (!hasInternet) return;
@@ -78,6 +78,7 @@ class SyncManager {
             headers: request.headers,
             retryCount: newRetryCount,
             createdAt: request.createdAt,
+            priority: request.priority, // Preserve priority
           ),
         );
 
