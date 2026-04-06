@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -51,8 +52,8 @@ class SyncManager {
 
   /// Sync all pending requests safely
   Future<void> syncPendingRequests() async {
-    final hasInternet = await _hasInternet();
-    if (!hasInternet) return;
+    final connected = await hasInternet();
+    if (!connected) return;
 
     onSyncStart?.call();
 
@@ -93,6 +94,33 @@ class SyncManager {
     try {
       final uri = Uri.parse(request.url);
 
+      if (request.isMultipart) {
+        final req = http.MultipartRequest(request.method.toUpperCase(), uri);
+        
+        // Add headers
+        req.headers.addAll(request.headers);
+        
+        // Add body fields
+        if (request.body.isNotEmpty) {
+           try {
+             final decodedBody = jsonDecode(request.body) as Map<String, dynamic>;
+             decodedBody.forEach((key, value) {
+               req.fields[key] = value.toString();
+             });
+           } catch (_) {}
+        }
+        
+        // Add files
+        if (request.files != null) {
+          for (final entry in request.files!.entries) {
+            req.files.add(await http.MultipartFile.fromPath(entry.key, entry.value));
+          }
+        }
+        
+        final streamedResponse = await req.send();
+        return streamedResponse.statusCode >= 200 && streamedResponse.statusCode < 300;
+      }
+
       // Merge default Content-Type with user-supplied headers
       final headers = {'Content-Type': 'application/json', ...request.headers};
 
@@ -122,7 +150,7 @@ class SyncManager {
   }
 
   /// Check if device has network connection
-  Future<bool> _hasInternet() async {
+  Future<bool> hasInternet() async {
     final results = await Connectivity().checkConnectivity();
     return results.any((r) => r != ConnectivityResult.none);
   }

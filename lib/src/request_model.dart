@@ -34,6 +34,13 @@ class OfflineRequest {
   /// Used to preserve FIFO (First-In-First-Out) order
   final DateTime createdAt;
 
+  /// Whether this is a multipart request (for file uploads)
+  final bool isMultipart;
+
+  /// Optional local file paths mapped to field names
+  /// Used exclusively when [isMultipart] is true.
+  final Map<String, String>? files;
+
   OfflineRequest({
     required this.id,
     required this.url,
@@ -42,6 +49,8 @@ class OfflineRequest {
     Map<String, String>? headers,
     required this.retryCount,
     required this.createdAt,
+    this.isMultipart = false,
+    this.files,
   }) : headers = headers ?? {};
 
   /// Convert request object to Map for SQLite storage
@@ -54,6 +63,8 @@ class OfflineRequest {
       'headers': jsonEncode(headers),
       'retryCount': retryCount,
       'createdAt': createdAt.toIso8601String(),
+      'isMultipart': isMultipart ? 1 : 0,
+      'files': files != null ? jsonEncode(files) : null,
     };
   }
 
@@ -65,6 +76,13 @@ class OfflineRequest {
           jsonDecode(map['headers'] as String) as Map<String, dynamic>;
       headers = decoded.map((k, v) => MapEntry(k, v.toString()));
     }
+    
+    Map<String, String>? files;
+    if (map['files'] != null && (map['files'] as String).isNotEmpty) {
+      final decoded = jsonDecode(map['files'] as String) as Map<String, dynamic>;
+      files = decoded.map((k, v) => MapEntry(k, v.toString()));
+    }
+
     return OfflineRequest(
       id: map['id'] as String,
       url: map['url'] as String,
@@ -73,6 +91,8 @@ class OfflineRequest {
       headers: headers,
       retryCount: map['retryCount'] as int,
       createdAt: DateTime.parse(map['createdAt'] as String),
+      isMultipart: (map['isMultipart'] as int?) == 1,
+      files: files,
     );
   }
 }
