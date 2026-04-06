@@ -30,7 +30,7 @@ class LocalDatabase {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -46,7 +46,17 @@ class LocalDatabase {
         body TEXT NOT NULL,
         headers TEXT NOT NULL DEFAULT '{}',
         retryCount INTEGER NOT NULL,
-        createdAt TEXT NOT NULL
+        createdAt TEXT NOT NULL,
+        isMultipart INTEGER NOT NULL DEFAULT 0,
+        files TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE offline_cache (
+        url TEXT PRIMARY KEY,
+        response TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
       )
     ''');
   }
@@ -58,6 +68,25 @@ class LocalDatabase {
       await db.execute(
         "ALTER TABLE offline_requests ADD COLUMN headers TEXT NOT NULL DEFAULT '{}'",
       );
+    }
+    
+    if (oldVersion < 3) {
+      // Add columns for multipart requests
+      await db.execute(
+        "ALTER TABLE offline_requests ADD COLUMN isMultipart INTEGER NOT NULL DEFAULT 0",
+      );
+      await db.execute(
+        "ALTER TABLE offline_requests ADD COLUMN files TEXT",
+      );
+
+      // Create offline_cache table for GET request caching
+      await db.execute('''
+        CREATE TABLE offline_cache (
+          url TEXT PRIMARY KEY,
+          response TEXT NOT NULL,
+          updatedAt TEXT NOT NULL
+        )
+      ''');
     }
   }
 
@@ -114,5 +143,40 @@ class LocalDatabase {
       where: 'retryCount >= ?',
       whereArgs: [maxRetryCount],
     );
+  }
+
+  // ─────────────────────────────────────────
+  // Cache Management (GET requests)
+  // ─────────────────────────────────────────
+
+  /// Cache a successful GET response
+  Future<void> cacheResponse(String url, String responseBody) async {
+    final db = await database;
+
+    await db.insert(
+      'offline_cache',
+      {
+        'url': url,
+        'response': responseBody,
+        'updatedAt': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Retrieve a cached GET response
+  Future<String?> getCachedResponse(String url) async {
+    final db = await database;
+
+    final records = await db.query(
+      'offline_cache',
+      where: 'url = ?',
+      whereArgs: [url],
+    );
+
+    if (records.isNotEmpty) {
+      return records.first['response'] as String?;
+    }
+    return null;
   }
 }
