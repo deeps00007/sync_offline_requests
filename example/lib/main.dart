@@ -120,6 +120,31 @@ class _HomePageState extends State<HomePage> {
               },
               child: const Text('DELETE Request'),
             ),
+            
+            const SizedBox(height: 20),
+
+            // GET request with caching
+            ElevatedButton(
+              onPressed: () async {
+                final response = await OfflineSync.get(
+                  url: 'https://jsonplaceholder.typicode.com/posts/1',
+                );
+                debugPrint('GET Response: $response');
+              },
+              child: const Text('GET Request (Cached)'),
+            ),
+
+            // MULTIPART request
+            ElevatedButton(
+              onPressed: () async {
+                await OfflineSync.multipart(
+                  url: 'https://jsonplaceholder.typicode.com/posts',
+                  files: {'dummy_file': '/path/to/dummy.jpg'},
+                );
+                await _refreshCount();
+              },
+              child: const Text('Multipart Upload'),
+            ),
 
             const Divider(height: 40),
 
