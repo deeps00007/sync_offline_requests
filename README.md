@@ -10,8 +10,6 @@
 
 ---
 
-## What's New in v1.2.0
-
 ## What's New in v1.3.0
 
 - **GET request caching** — Offline-capable `GET` requests that auto-fallback to local SQLite cache.
