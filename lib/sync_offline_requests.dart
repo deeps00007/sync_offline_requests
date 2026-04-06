@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import 'src/request_model.dart';
@@ -109,6 +110,66 @@ class OfflineSync {
     await _enqueue(url: url, method: 'DELETE', body: {}, headers: headers);
   }
 
+  /// Send a GET request with offline caching support.
+  /// 
+  /// If online: Fetches from the network and caches the JSON response.
+  /// If offline: returns the previously cached JSON response.
+  /// Returns null if no cached data is available.
+  static Future<dynamic> get({
+    required String url,
+    Map<String, String>? headers,
+  }) async {
+    assert(_initialized, 'OfflineSync.initialize() must be called first.');
+    
+    final isOnline = await _syncManager.hasInternet();
+    if (isOnline) {
+      try {
+        final uri = Uri.parse(url);
+        final response = await http.get(uri, headers: headers);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          // Save to SQLite cache
+          await LocalDatabase.instance.cacheResponse(url, response.body);
+          return jsonDecode(response.body);
+        }
+      } catch (_) {}
+    }
+    
+    // Offline, request failed, or error: fallback to cache
+    final cached = await LocalDatabase.instance.getCachedResponse(url);
+    if (cached != null) {
+      try {
+        return jsonDecode(cached);
+      } catch (_) {
+        return cached;
+      }
+    }
+    return null;
+  }
+
+  /// Send a Multipart request (like file uploads) using offline-first strategy.
+  ///
+  /// [url] — the API endpoint
+  /// [method] — the HTTP method ('POST' or 'PUT', defaults to 'POST')
+  /// [body] — optional string fields to include
+  /// [files] — map of fieldName to local absolute file path
+  /// [headers] — optional HTTP headers (Content-Type will be automatically set)
+  static Future<void> multipart({
+    required String url,
+    String method = 'POST',
+    Map<String, dynamic>? body,
+    required Map<String, String> files,
+    Map<String, String>? headers,
+  }) async {
+    await _enqueue(
+      url: url,
+      method: method,
+      body: body ?? {},
+      headers: headers,
+      isMultipart: true,
+      files: files,
+    );
+  }
+
   // ─────────────────────────────────────────
   // Queue Management
   // ─────────────────────────────────────────
@@ -147,6 +208,8 @@ class OfflineSync {
     required String method,
     required Map<String, dynamic> body,
     Map<String, String>? headers,
+    bool isMultipart = false,
+    Map<String, String>? files,
   }) async {
     assert(_initialized, 'OfflineSync.initialize() must be called first.');
 
@@ -158,6 +221,8 @@ class OfflineSync {
       headers: headers,
       retryCount: 0,
       createdAt: DateTime.now(),
+      isMultipart: isMultipart,
+      files: files,
     );
 
     await LocalDatabase.instance.insertRequest(request);
