@@ -12,7 +12,13 @@
 
 ## What's New in v1.2.0
 
-- **PUT & DELETE support** — Full offline-first support for all three major HTTP methods.
+## What's New in v1.3.0
+
+- **GET request caching** — Offline-capable `GET` requests that auto-fallback to local SQLite cache.
+- **Multipart support** — Easily queue file uploads (images, docs) offline. Local file paths are securely stored and uploaded automatically when online.
+- **Custom Headers** — Pass `Authorization`, `X-Api-Key`, or any header per request.
+
+## What's New in v1.2.0
 - **Custom Headers** — Pass `Authorization`, `X-Api-Key`, or any header per request.
 - **Configurable retry limit** — Set `maxRetryCount` in `initialize()` instead of being stuck at 3.
 - **Bug fix** — Compatibility with `connectivity_plus` v6.x (returns `List<ConnectivityResult>`).
@@ -31,7 +37,9 @@
 - **FIFO Processing**: Maintains the order of operations with First-In-First-Out processing.
 - **Minimal API**: Simple to integrate with existing projects.
 - **Custom Headers**: Pass Authorization tokens or any HTTP header per request.
-- **PUT & DELETE support**: Full offline-first support for PUT and DELETE methods.
+- **GET Caching**: Smart offline caching for GET responses.
+- **Multipart Uploads**: Offline queuing for bulky image/document uploads.
+- **Full REST support**: Offline-first support for POST, PUT, DELETE, GET, and Multipart.
 
 ---
 
@@ -41,7 +49,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  sync_offline_requests: ^1.2.1
+  sync_offline_requests: ^1.3.0
 ```
 
 Run the fetch command:
@@ -75,7 +83,22 @@ void main() {
 }
 ```
 
-### 2. POST Request
+### 2. GET Request (with Offline Caching)
+
+```dart
+// Online: fetches from API & saves to SQLite
+// Offline: returns the locally cached JSON!
+final response = await OfflineSync.get(
+  url: 'https://example.com/api/data',
+  headers: {'Authorization': 'Bearer your_token'},
+);
+
+if (response != null) {
+  print(response['name']);
+}
+```
+
+### 3. POST Request
 
 ```dart
 await OfflineSync.post(
@@ -95,12 +118,27 @@ await OfflineSync.put(
 );
 ```
 
-### 4. DELETE Request
+### 5. DELETE Request
 
 ```dart
 await OfflineSync.delete(
   url: 'https://example.com/api/user/1',
   headers: {'Authorization': 'Bearer your_token'}, // optional
+);
+```
+
+### 6. Multipart File Uploads (Images/Docs)
+
+Instead of saving heavy images to JSON or memory, we store the **local file path** directly to SQLite. When the user connects to WiFi, the file automatically gets sent via `http.MultipartRequest`!
+
+```dart
+await OfflineSync.multipart(
+  url: 'https://example.com/upload',
+  method: 'POST', // or 'PUT'
+  body: {'userId': '123'}, 
+  files: {
+    'profile_picture': '/data/user/0/com.app/cache/image123.jpg',
+  },
 );
 ```
 
@@ -202,16 +240,15 @@ This helps keep local storage clean and avoids unnecessary sync attempts.
 ## Limitations
 
 - Currently supports **POST**, **PUT**, and **DELETE** methods.
-- Designed primarily for **JSON** payloads.
-- Not optimized for large multi-part file uploads.
-- Background sync (when the app is closed) is platform-dependent and currently relies on the app being in the foreground or suspended state.
+- Minimal file upload mapping support (one file per key path). 
+- Background sync (when the app is completely closed) is platform-dependent and currently relies on the app being in the foreground or suspended state.
 
 ---
 
 ## Roadmap
 
-- [ ] GET request caching support
-- [ ] Custom headers configuration
+- [x] GET request caching support
+- [x] Multi-part offline mapping
 - [ ] Enhanced background sync work manager
 - [ ] Conflict resolution strategies
 - [ ] Payload encryption

@@ -1,3 +1,10 @@
+## 1.3.0
+
+- **New:** Added offline caching support for `GET` requests using `OfflineSync.get(...)`.
+- **New:** Multipart file upload support for images/documents using `OfflineSync.multipart(...)`.
+- **Changed:** SQLite DB schema migrated to version 3 automatically for existing users.
+- **Improved:** Smarter connection verification through network pooling.
+
 ## 1.2.1
 - Updated example app to demonstrate PUT, DELETE, and custom headers
 - Updated README Quick Start section with all new API methods
